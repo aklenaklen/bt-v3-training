@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<head>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.3.7/css/bootstrap.css" />
+  
+</head>
+
+<body>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>
+    <!-- Braintree Scripts -->
+    <script src="../lib/hosted-fields.js"></script>
+    <script src="../lib/client.js"></script>
+    <script src="../lib/data-collector.js"></script>
+
+    <script type="text/javascript">
+
+        var auth = 'sandbox_mpkhypqr_wkqn2r5yxbvdgs4r';
+
+        var hostedFieldsStyles = {
+            
+        };
+
+        var hostedFields = {
+            number: {
+                selector: '#card-number',
+                placeholder: '411111111111111'
+            },
+            cvv: {
+                selector: '#cvv',
+                placeholder: 'CVV'
+            },
+            expirationDate: {
+                selector: '#expiration-date',
+                type: 'month'
+            }
+        };
+
+        braintree.client.create({
+            authorization: auth
+        }, function (clientErr, clientInstance) {
+            
+            // Search chrome dev tools console tab for "Client:" to see what I am
+            console.log('Client:', clientInstance, clientErr);
+            
+            // Create data collector
+            braintree.dataCollector.create({ client: clientInstance, paypal: true }, function (err, data) {
+                // Search chrome dev tools console tab for "Risk Data:" to see what I am
+                console.log('Risk Data:', data);
+            });
+
+            braintree.hostedFields.create({
+                client: clientInstance,
+                styles: hostedFieldsStyles,
+                fields: hostedFields
+            }, function (hostedFieldErr, hostedFieldsInstance) {
+
+                // Search chrome dev tools console tab for "hostedFieldsInstance:" to see what I am
+                console.log('hostedFieldsInstance:', hostedFieldsInstance, hostedFieldErr);
+
+                // Set Onclick on button
+                $('#hfSubmit').click(function (event) {
+                    event.preventDefault();
+
+                    hostedFieldsInstance.tokenize(function (err, result) {
+
+                        // Search chrome dev tools console tab for "BTTokenize:" to see what I am
+                        console.log('BTTokenize:', err, result);
+                        
+                        $('#hfresponse').html(JSON.stringify(result, 0, 2));
+                        $('#hf').show();
+                    });
+                });
+                
+
+            });
+
+        });
+        
+    </script>
+    <h1>Hosted Fields</h1>
+    <div><a href="https://braintree.github.io/braintree-web/current/HostedFields.html">Documentation</a>	
+    <form>
+        <div class="form-group">
+            <label>Credit Card</label>
+            <div id="card-number" class="form-control"></div>
+        </div>
+        <div class="form-group">
+            <label>Expiration</label>
+            <div id="expiration-date" class="form-control"></div>
+        </div>
+        <div class="form-group">
+            <label>CVV</label>
+            <div id="cvv" class="form-control"></div>
+        </div>
+        <button id="hfSubmit">Submit</button>
+    </form>
+
+    <div id="hf" style="display:none">
+        <h1>Hosted Fields Response</h1>
+        <pre id="hfresponse"></pre>
+    </div>
+
+    <br/><a href="index.html">Go Back</a>
+</body>
+</html>

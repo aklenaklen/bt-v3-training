@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<head>
+
+</head>
+
+<body>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>
+    <!-- Braintree Scripts -->
+    <script src="../lib/paypal.js"></script>
+    <script src="../lib/client.js"></script>
+    <script src="../lib/data-collector.js"></script>
+
+    <script type="text/javascript">
+
+        var auth = 'sandbox_mpkhypqr_wkqn2r5yxbvdgs4r';
+
+        var braintreePayPalOptions = {
+            flow: 'vault'
+        };
+
+        braintree.client.create({
+            authorization: auth
+        }, function (clientErr, clientInstance) {
+            
+            // Search chrome dev tools console tab for "Client:" to see what I am
+            console.log('Client:', clientInstance, clientErr);
+            
+            // Create data collector
+            braintree.dataCollector.create({ client: clientInstance, paypal: true }, function (err, data) {
+                // Search chrome dev tools console tab for "Risk Data:" to see what I am
+                console.log('Risk Data:', data);
+            });
+
+            braintree.paypal.create({
+                client: clientInstance
+            }, function (paypalErr, paypalInstance) {
+
+                // Search chrome dev tools console tab for "PayPalInstance:" to see what I am
+                console.log('PayPalInstance:', paypalInstance, paypalErr);
+
+                //Set an OnClick Handler
+                $('#paypal-button').click(function (event) {
+                    event.preventDefault();
+
+                    // Launch PayPal via Braintree
+                    paypalInstance.tokenize(braintreePayPalOptions, function (err, result) {
+                        
+                        // Search chrome dev tools console tab for "BT tokenizePayment:" to see what I am
+                        // This is the same as OnPaymentMethodReceived in v2
+                        console.log("BT tokenizePayment:", result, err);
+
+                        $('#ppresponse').html(JSON.stringify(result, 0, 2));
+                        $('#pp').show();
+                        
+                    });
+
+                });
+
+                
+
+            });
+
+        });
+        
+    </script>	
+    <button id="paypal-button">Launch PayPal</button>
+    <div id="pp" style="display:none">
+        <h1>PayPal Response</h1>
+        <pre id="ppresponse"></pre>
+    </div>
+    <br/><a href="index.html">Go Back</a>
+</body>
+</html>

@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<head>
+
+</head>
+
+<body>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>
+
+    <!-- PayPal Script -->
+    <script src="https://www.paypalobjects.com/api/checkout.js" data-version-4></script>
+    <!-- Braintree Scripts -->
+    <script src="../lib/paypal-checkout.js"></script>
+    <script src="../lib/client.js"></script>
+    <script src="../lib/data-collector.js"></script>
+
+    <script type="text/javascript">
+
+        var auth = 'sandbox_mpkhypqr_wkqn2r5yxbvdgs4r';
+
+        var braintreePaypalOptions = {
+            flow: 'checkout',
+            intent: 'authorize',
+            amount: '10.00',
+            currency: 'USD'
+        };
+
+        var checkoutJs = {
+            commit: false,
+            locale: 'en_US',
+            style: {
+                size: 'medium',
+                color: 'silver',
+                shape: 'rect'
+            }
+        };
+
+        braintree.client.create({
+            authorization: auth
+        }, function (clientErr, clientInstance) {
+            
+            // Search chrome dev tools console tab for "Client:" to see what I am
+            console.log('Client:', clientInstance, clientErr);
+            
+            // Create data collector
+            braintree.dataCollector.create({ client: clientInstance, paypal: true }, function (err, data) {
+                // Search chrome dev tools console tab for "Risk Data:" to see what I am
+                console.log('Risk Data:', data);
+            });
+
+            braintree.paypalCheckout.create({
+                client: clientInstance
+            }, function (paypalCheckoutErr, paypalCheckoutInstance) {
+
+                // Search chrome dev tools console tab for "PayPalInstance:" to see what I am
+                console.log('PayPalInstance:', paypalCheckoutInstance, paypalCheckoutErr);
+
+                // Set CheckoutJS Environment based on Braintree JS Environment
+                var braintreeEnvironment = clientInstance.getConfiguration().gatewayConfiguration.environment;
+        
+                // Start Paypal Checkout.js Javascript
+                paypal.Button.render({
+                    env: braintreeEnvironment === 'production' ? 'production' : 'sandbox',
+                    payment: function (resolve, reject) {
+                        paypalCheckoutInstance.createPayment(braintreePaypalOptions, function (err, res) {
+                            // Search chrome dev tools console tab for "BT createPayment:" to see what I am
+                            console.log('BT createPayment:', res, err);
+                            
+                            if (err) {
+                                reject(err);
+                            } else {
+                                resolve(res);
+                            }
+                        });
+                    },
+
+                    locale: checkoutJs.locale,
+                    commit: checkoutJs.commit,
+                    style: checkoutJs.style,
+
+                    onAuthorize: function (data, actions) {
+
+                        return paypalCheckoutInstance.tokenizePayment(data, function (err, result) {
+                            // Search chrome dev tools console tab for "BT tokenizePayment:" to see what I am
+                            // This is the same as OnPaymentMethodReceived in v2
+                            console.log("BT tokenizePayment:", result, err);
+                            $('#ppresponse').html(JSON.stringify(result, 0, 2));
+                            $('#pp').show();
+                        });
+                           
+                    },
+
+                    onCancel: function (data) {
+                        // Search chrome dev tools console tab for "Cancel:" to see what I am.  You have to close the popup/lb first
+                        console.log('Cancel:', data);
+                    },
+
+                    onError: function (err) {
+                        // Search chrome dev tools console tab for "Cancel:" to see what I am.
+                        console.error('Error:', err);
+                    },
+                }, '#paypal-button').then(function () {
+                    console.log('PayPal button ready!');
+                });
+        });
+
+    });
+        
+    </script>	
+    <div id="paypal-button"></div>
+    <div id="pp" style="display:none">
+        <h1>PayPal Response</h1>
+        <pre id="ppresponse"></pre>
+    </div>
+    <a href="index.html">Go Back</a>
+</body>
+</html>

@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<head>
+
+</head>
+
+<body>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>
+
+    <!-- PayPal Script -->
+    <script src="https://www.paypalobjects.com/api/checkout.js" data-version-4></script>
+
+    <script>
+        // Start Checkout.js Javascript
+        paypal.Button.render({
+            env: 'sandbox',
+            client: {
+                sandbox:    'AUPr042hxbPiggRyJ2Y_4YysM92ei2UZJNDxG7yNYXdVwwXgSDcVXOX6Agy7rpTCTc_A4PekyklU_woq',
+                production: 'xxxxxxxxx'  
+            },
+            payment: function() {
+                // This function needs to return an EC Token, Pay-ID, or billing agreement ID.
+                return paypal.rest.payment.create(this.props.env, this.props.client, {
+                    transactions: [
+                        {
+                            amount: {
+                                total:    '1.00',
+                                currency: 'USD'
+                            }
+                        }
+                    ]
+                });
+            },
+            commit: true,
+            onAuthorize: function(data, actions) {
+                // This function needs to return a promise.  Overlay disappears when this Promise resolves.
+
+                // Search chrome dev tools console tab for "onAuthorize:" to see what I am
+                console.log('onAuthorize:', data, actions);
+                
+                // GetExpressCheckout Functionality
+                actions
+                    .payment
+                    .get()
+                    .then(function (data) {
+                        // Search chrome dev tools console tab for "GetExpressCheckout:" to see what I am
+                        console.log('GetExpressCheckout:', data);
+                        $('#ppresponse').html(JSON.stringify(data, 0, 2));
+                        $('#pp').show();
+                    });
+
+                return actions
+                        .payment
+                        .execute()
+                        .then(function(data) {
+                            console.log('Payment Complete!');
+                        });
+            },
+            onCancel: function(data) {
+                // Search chrome dev tools console tab for "Cancelled:" to see what I am
+                console.log('Cancelled:', data);
+            }
+        }, '#paypal-button');
+    </script>
+    <div id="paypal-button"></div>
+    <div id="pp" style="display:none">
+        <h1>PayPal Response(GetExpressCheckout Equivalent)</h1>
+        <pre id="ppresponse"></pre>
+    </div>
+    <a href="index.html">Go Back</a>
+</body>
+</html>
