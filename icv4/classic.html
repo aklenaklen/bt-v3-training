@@ -14,26 +14,21 @@
         // Start Checkout.js Javascript
         paypal.Button.render({
             env: 'sandbox',
-            client: {
-                sandbox:    'AUPr042hxbPiggRyJ2Y_4YysM92ei2UZJNDxG7yNYXdVwwXgSDcVXOX6Agy7rpTCTc_A4PekyklU_woq',
-                production: 'xxxxxxxxx'  
-            },
             payment: function(resolve, reject) {
-                // This function needs to resolve an EC Token, Pay-ID, or billing agreement ID.
+                // This function needs to return/resolve an EC Token, Pay-ID, or billing agreement ID.
 
                 // If you want to test checkout.js with our own Token uncomment the line below and add your token
                 // return resolve('EC-01N93346XG392122L');
 
                 $.get('http://166.78.8.98/cgi-bin/aries.cgi?sandbox=1&ajax=1&tokenonly=1&returnurl=http://166.78.8.98/cgi-bin/return.htm&cancelurl=http://166.78.8.98/cgi-bin/cancel.htm&onlytoken=1')
-                .done(function (token) {
-                    resolve(token);
-                })
-                .fail(function (err) {
-                    console.log('AjaxError', err);
-                    reject(err);
-                });
+                    .done(function (token) {
+                        resolve(token);
+                    })
+                    .fail(function (err) {
+                        console.log('AjaxError', err);
+                        reject(err);
+                    });
 
-                
             },
             commit: false,
             onAuthorize: function(data, actions) {
@@ -45,7 +40,7 @@
                 // Redirect to RETURNURL
                 return actions.redirect();
             },
-            onCancel: function(data) {
+            onCancel: function(data, actions) {
                 // Search chrome dev tools console tab for "Cancelled:" to see what I am
                 console.log('Cancelled:', data);
 

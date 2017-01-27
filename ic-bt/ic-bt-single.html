@@ -62,6 +62,8 @@
                 paypal.Button.render({
                     env: braintreeEnvironment === 'production' ? 'production' : 'sandbox',
                     payment: function (resolve, reject) {
+
+                        // Braintree Javascript
                         paypalCheckoutInstance.createPayment(braintreePaypalOptions, function (err, res) {
                             // Search chrome dev tools console tab for "BT createPayment:" to see what I am
                             console.log('BT createPayment:', res, err);
@@ -80,6 +82,7 @@
 
                     onAuthorize: function (data, actions) {
 
+                        // Braintree JS
                         return paypalCheckoutInstance.tokenizePayment(data, function (err, result) {
                             // Search chrome dev tools console tab for "BT tokenizePayment:" to see what I am
                             // This is the same as OnPaymentMethodReceived in v2
@@ -96,7 +99,7 @@
                     },
 
                     onError: function (err) {
-                        // Search chrome dev tools console tab for "Cancel:" to see what I am.
+                        // Search chrome dev tools console tab for "Error:" to see what I am.
                         console.error('Error:', err);
                     },
                 }, '#paypal-button').then(function () {

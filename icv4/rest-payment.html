@@ -53,7 +53,7 @@
                         .payment
                         .execute()
                         .then(function(data) {
-                            console.log('Payment Complete!');
+                            console.log('Payment Complete!', data);
                         });
             },
             onCancel: function(data) {
