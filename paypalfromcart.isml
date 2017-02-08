@@ -1,0 +1,269 @@
+<isscript>
+	var BraintreeHelper : Object = require('~/cartridge/scripts/modules/BraintreeHelper.ds');
+	var prefs : Object = BraintreeHelper.getPrefs();
+	var customerPaypalInstruments = BraintreeHelper.getCustomerPaypalPaymentInstruments();
+ </isscript>
+
+<isif condition="${dw.order.PaymentMgr.getPaymentMethod('PayPal').getPaymentProcessor().getID() == 'BRAINTREE_PAYPAL' && prefs.BRAINTREE_PAYPAL_Checkout_From_Cart}" >
+
+	<isif condition="${!request.custom.braintreeCssLoaded}">
+		<link rel="stylesheet" href="${URLUtils.staticURL('/css/braintree.css')}" />
+		<isset name="braintreeCssLoaded" value="true" scope="request" />
+	</isif>
+
+	<isif condition="${!request.custom.braintreeJsLoaded}">
+		<!-- PayPal:  V3 Integration Scripts
+		TODO: Change from bluesuncorp addresses when BT Releases.
+		-->
+		<script type="text/javascript" src="${URLUtils.staticURL('/js/braintreeUtils.js')}"></script>
+		<script src="https://www.paypalobjects.com/api/checkout.js" data-version-4></script>
+		<script src="https://js.braintreegateway.com/web/3.7.0/js/client.min.js"></script>
+		<script src="https://js.braintreegateway.com/web/3.7.0/js/paypal-checkout.min.js"></script>
+		<script src="https://js.braintreegateway.com/web/3.7.0/js/data-collector.min.js"></script>
+		<!-- END PayPal:  V3 Integration Scripts -->
+		<isset name="braintreeJsLoaded" value="true" scope="request" />
+	</isif>
+
+
+	<isif condition="${customerPaypalInstruments.size() > 0}">
+
+		<isscript>
+			var isAddressExist : Boolean = false;
+			if(pdict.Basket.getDefaultShipment().productLineItems.length <= 0) {
+				isAddressExist = true;
+			}
+		</isscript>
+
+		<a class="js_braintree_paypal_start_checkout_with_saved_account braintree-cart-paypal-button" href="${dw.web.URLUtils.https('Braintree-CheckoutFromCart')}" data-is-address-exist="${isAddressExist}" data-edit-address-url="${dw.web.URLUtils.https('Braintree-EditDefaultShippinAddress')}" data-edit-address-title="${Resource.msg('braintree.paypal.editdefaultshippingaddress.title','locale',null)}">
+			${Resource.msg('braintree.cart.paypal.button','locale',null)}
+		</a>
+		<span>${Resource.msg('braintree.cart.or','locale',null)}</span>
+
+	<iselse>
+
+		<isscript>
+			BraintreeHelper.addDefaultShipping(pdict.Basket);
+			var amount : String = BraintreeHelper.getAmount(pdict.Basket);
+			var locale : String = dw.system.Site.getCurrent().getDefaultLocale();
+			var isShipped : Boolean = !!pdict.Basket.getProductLineItems().size();
+			var isProduction : Boolean = dw.system.System.getInstanceType() === dw.system.System.PRODUCTION_SYSTEM;
+			var buttonID : String = 'paypal-container' + (new Date()).getTime();
+		</isscript>
+
+		<div id="${buttonID}" class="braintree-cart-paypal-containter">
+			<img src="${prefs.paypalCheckoutButtonImage}" alt="${Resource.msg('braintree.cart.paypal.button','locale',null)}" />
+		</div>
+	  	<span>${Resource.msg('braintree.cart.or','locale',null)}</span>
+
+		<script type="text/javascript">
+		(function () {
+			//PayPal:  V3 Integration
+			
+		    //TODO: THis should be a config param
+		    //https://developers.braintreepayments.com/guides/authorization/tokenization-key/javascript/v3
+		    var auth = 'sandbox_mpkhypqr_wkqn2r5yxbvdgs4r';
+		    var paypalHandle = "${URLUtils.url('Braintree-CheckoutFromCart', 'fromCart', 'true')}";
+		    
+		    var braintreePaypalOptions = {
+                //TODO:  This object should be a configuration parameter similar to how hosted fields is now.  Configuration for cart page and payment page should be separated.  Remove useraction commit as this is specific for dooney
+                //https://braintree.github.io/braintree-web/current/PayPal.html${'#'}tokenize
+                flow: '${prefs.BRAINTREE_PAYPAL_CART_Vault_Mode}' === 'not' ? 'checkout' : 'vault',
+				locale: '${locale}',
+				amount: '${prefs.BRAINTREE_PAYPAL_CART_Vault_Mode}' === 'not' ? '${BraintreeHelper.getAmount(pdict.Basket)}'.substr(4) : undefined, //This needs to change
+				currency: '${prefs.BRAINTREE_PAYPAL_CART_Vault_Mode}' === 'not' ? '${prefs.currencyCode}' : undefined,
+				locale: '${locale}',
+				enableShippingAddress: true,
+				enableBillingAddress: true,
+				displayName: '${prefs.BRAINTREE_PAYPAL_Display_Name}' !== 'null' ? '${prefs.BRAINTREE_PAYPAL_Display_Name}' : undefined,
+ 				useraction: '${prefs.BRAINTREE_PAYPAL_CART_Payment_Model}' === 'sale' ? 'commit' : undefined,  //TODO: Add this as a configuration parameter.  Should be set like paypalOptions.useraction above.  same config updates both
+ 				intent: '${prefs.BRAINTREE_PAYPAL_CART_Payment_Model}'
+             };
+		    
+
+		    braintree.client.create({
+		        authorization: auth
+		    }, function (clientErr, clientInstance) {
+
+		        //Create data collector
+		        //TODO:  The old integration only does this if the config for fraud tools is enabled.  I think this is a bad idea and there is no reason to not do it always especially if they are vaulting without FT enabled would cause massive declines
+		        braintree.dataCollector.create({ client: clientInstance, paypal: true }, function (err, data) {
+		          paypalHandle += "&riskData=" + data.deviceData;
+		        });
+
+		        braintree.paypalCheckout.create({
+		            client: clientInstance
+		        }, function (paypalErr, paypalInstance) {
+
+		        // Set CheckoutJS Environment based on Braintree JS Environment
+                var braintreeEnvironment = clientInstance.getConfiguration().gatewayConfiguration.environment;
+        
+                // Start Paypal Checkout.js Javascript
+                paypal.Button.render({
+                    	env: braintreeEnvironment === 'production' ? 'production' : 'sandbox',
+				    	locale: '${locale}',
+						commit: '${prefs.BRAINTREE_PAYPAL_CART_Payment_Model}' === 'sale' ? true : undefined,
+		                	payment: '${prefs.BRAINTREE_PAYPAL_CART_Vault_Mode}' !== 'not' ? undefined : function (resolve, reject) {
+		        			return paypalInstance.createPayment(braintreePaypalOptions, function (err, data) {
+		                    		return err ? reject(err) : resolve(data.paymentID);
+		                    		});
+		        		},
+		        		
+						onAuthorize: function(data, actions) {
+		                	//FYI: I am returning a promise that will never resolve.  Demandware is super slow on the redirect and this will keep the overlay until the redirect kills it.
+		                	return new paypal.Promise(function (resolve, reject) {
+		                		//FYI:  The callback here is the onPaymentMethodRecieved in v2
+			                    paypalInstance.tokenizePayment(data, function (err, result) {
+			                      //FYI:  Copied and pasted from onPaymentMethodRecieved		                      
+			                      var details = result.details;
+			       
+			                      if (result.type = "PayPalAccount") {
+			                        paypalHandle += "&braintreePaypalNonce=" + result.nonce + '&';
+			                        if(result.hasOwnProperty('details') && details.billingAddress) {
+			                        	
+			                        	//FYI:  V3 changes the structure of the data returned in the details object.  This converts back to old style;
+			                        	var billingAddress = {
+		                        			streetAddress: details.billingAddress.line1,
+			                        		extendedAddress: details.billingAddress.line2,
+			                        		locality: details.billingAddress.city,
+			                        		region: details.billingAddress.state,
+			                        		postalCode: details.billingAddress.postalCode,
+			                        		countryCodeAlpha2: details.billingAddress.countryCode,
+			                        		firstName: details.firstName,
+			                        		lastName: details.lastName,
+			                        		email: details.email,
+			                        		phone: details.phone
+			                        	};
+										
+										paypalHandle += "braintreePaypalBillingAddress=" + encodeURI(JSON.stringify(billingAddress).replace(/${'#'}/g, '%23')) + '&';
+									}
+									if(result.hasOwnProperty('details') && details.shippingAddress) {
+										//FYI:  V3 changes the structure of the data returned in the details object.  This converts back to old style;
+			                        	var shippingAddress = {
+		                        			streetAddress: details.shippingAddress.line1,
+			                        		extendedAddress: details.shippingAddress.line2,
+			                        		locality: details.shippingAddress.city,
+			                        		region: details.shippingAddress.state,
+			                        		postalCode: details.shippingAddress.postalCode,
+			                        		countryCodeAlpha2: details.shippingAddress.countryCode,
+			                        		firstName: details.firstName,
+			                        		lastName: details.lastName,
+			                        		email: details.email,
+			                        		phone: details.phone,
+			                        		recipientName: details.shippingAddress.recipientName 
+			                        	};
+										if(!shippingAddress.recipientName){
+											shippingAddress.recipientName = details.firstName + ' ' + details.lastName;
+										}
+									
+										paypalHandle += "braintreePaypalShippingAddress=" + encodeURI(JSON.stringify(shippingAddress).replace(/${'#'}/g, '%23')) + '&';
+									}
+
+			                        actions.redirect(window, paypalHandle);
+			                      }
+			                    });
+		    
+		                	});
+		                   
+		                
+		                },
+		                onCancel: function(data, actions) {
+			            	//Anything you want to do if the user closes the popup.
+		                },
+
+		                onError: function(error) {
+		                  //TODO:  I am not sure if the error types in BT v3 correspond to these in v2
+		                  var msg = error.type === 'VALIDATION' ? error.message : "${Resource.msg('braintree.server.error', 'locale', null)}";
+		                  document.getElementById('braintreePaymentMethodErrorContainer').innerHTML = msg;
+		                },
+
+		                onClick: function() {
+		                  //Anything you want to do on click of the paypal button.  disable some buttons or something?
+		                },
+
+		                style: {
+		                  //TODO: SHould be configuratoin parameter.  Similar to the hosted fields JSON configration.  Docs not yet available publically.  Ask me.
+		                  size: 'medium',
+		                  color: 'silver',
+		                  shape: 'rect'
+		                }
+				    }, '${'#'}${buttonID}');
+
+		        });
+		    });
+		})();
+			
+			//END PayPal:  V3 Integrationa
+
+			/*
+			//OLD INTEGRATION
+			(function() {
+				var amount = '${amount.getValue()}';
+				var paypalObj = {
+					singleUse: ${prefs.BRAINTREE_PAYPAL_Vault_Mode === 'not'},
+					amount: parseFloat(amount),
+					currency: '${prefs.currencyCode}',
+					locale: '${locale}',
+					enableShippingAddress: true,
+					enableBillingAddress: true,
+					headless: true
+				};
+				var dataCollector = {};
+				var paypalHandle = "${URLUtils.url('Braintree-CheckoutFromCart', 'fromCart', 'true')}";
+				var riskData;
+
+				if('${prefs.BRAINTREE_PAYPAL_Display_Name}' != 'null'){
+					paypalObj.displayName = '${prefs.BRAINTREE_PAYPAL_Display_Name}';
+				}
+				if(${prefs.BRAINTREE_PAYPAL_Fraud_Tools_Enabled}) {
+					dataCollector.paypal = true;
+				}
+
+				braintree.setup('${BraintreeHelper.getClientToken()}', 'custom', {
+					paypal: paypalObj,
+					dataCollector: dataCollector,
+					onPaymentMethodReceived: function(data) {
+						var details = data.details;
+						if (data.type = "PayPalAccount") {
+							paypalHandle += "&braintreePaypalNonce=" + data.nonce + '&';
+							if(data.hasOwnProperty('details') && details.billingAddress) {
+								details.billingAddress.firstName = details.firstName;
+								details.billingAddress.lastName = details.lastName;
+								details.billingAddress.email = details.email;
+								details.billingAddress.phone = details.phone;
+								paypalHandle += "braintreePaypalBillingAddress=" + encodeURI(JSON.stringify(data.details.billingAddress).replace(/${'#'}/g, '%23')) + '&';
+							}
+							if(data.hasOwnProperty('details') && details.shippingAddress) {
+								if(!details.shippingAddress.recipientName){
+									details.shippingAddress.firstName = details.firstName;
+									details.shippingAddress.lastName = details.lastName;
+								}
+								details.shippingAddress.phone = details.phone;
+								paypalHandle += "braintreePaypalShippingAddress=" + encodeURI(JSON.stringify(data.details.shippingAddress).replace(/${'#'}/g, '%23')) + '&';
+							}
+							if(riskData && riskData != '') {
+								paypalHandle += "riskData=" + riskData;
+							}
+							window.location.href = paypalHandle;
+						}
+					},
+					onError: function (error) {
+						var msg = error.type === 'VALIDATION' ? error.message : "${Resource.msg('braintree.server.error', 'locale', null)}";
+						document.getElementById('braintreePaymentMethodErrorContainer').innerHTML = msg;
+					},
+					onReady: function(integration) {
+						if(integration.deviceData) {
+							riskData = integration.deviceData;
+						}
+						braintreeUtils.addEvent(document.getElementById('${buttonID}'), 'click', function(event) {
+							event.preventDefault();
+							integration.paypal.initAuthFlow();
+						});
+					}
+				});
+			})();
+			*/
+		</script>
+
+	 </isif>
+
+</isif>
